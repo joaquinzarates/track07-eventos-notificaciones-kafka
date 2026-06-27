@@ -265,7 +265,8 @@ Misma petición que en la primera captura, esta vez dirigida al puerto 8083 (API
 
 **Plataforma utilizada:** Claude (Anthropic), capa gratuita.
 
-**Motivo de la elección:** .
+**Motivo de la elección:** la elección se respalda en datos de adopción de la industria — Anthropic concentra el 54% del mercado de codificación empresarial frente al 21% de OpenAI (Menlo Ventures, "State of Generative AI in the Enterprise" 2025), y Claude Code obtuvo la calificación de satisfacción más alta ("most-loved") del 46% en una encuesta a 15,000 desarrolladores,con
+una ventana de contexto estándar de 1 millón de tokens desde marzo de 2026.
 
 **Ejemplos concretos de uso durante el desarrollo, con el prompt real utilizado:**
 
