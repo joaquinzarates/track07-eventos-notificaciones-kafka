@@ -1,0 +1,14 @@
+spring:
+  cloud:
+    gateway:
+      mvc:
+        routes:
+          - id: event-service
+            uri: http://event-service:8081
+            predicates:
+              - Path=/api/events/**,/api/events
+
+          - id: notification-service
+            uri: http://notification-service:8082
+            predicates:
+              - Path=/api/notifications/**,/api/notifications
