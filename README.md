@@ -103,27 +103,25 @@ Cada microservicio es dueño de su propia base de datos H2 — no comparten esqu
 - IntelliJ IDEA (trae su propia distribución de Maven integrada)
 - Docker 24+ y Docker Compose v2
 
-Se comprueba la versión actual de Java mediante el siguiente comando:
-
 <p align="right">(<a href="#readme-top">Regresar al inicio</a>)</p>
 
 ---
 
 ## Instalación
 
-1. Clonar el repositorio
+ Clonar el repositorio
 
 ```sh
 git clone https://github.com/joaquinzarates/track07-eventos-notificaciones-kafka.git
 ```
 
-1. Entrar a la carpeta
+Entrar a la carpeta
 
 ```sh
 cd track07-eventos-notificaciones-kafka
 ```
 
-1. Abrir el proyecto en IntelliJ apuntando al `pom.xml` raíz (detecta los 3 módulos automáticamente)
+Abrir el proyecto en IntelliJ apuntando al `pom.xml` raíz (detecta los 3 módulos automáticamente)
 
 <p align="right">(<a href="#readme-top">Regresar al inicio</a>)</p>
 
