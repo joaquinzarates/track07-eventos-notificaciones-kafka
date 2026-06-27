@@ -105,10 +105,6 @@ Cada microservicio es dueño de su propia base de datos H2 — no comparten esqu
 
 Se comprueba la versión actual de Java mediante el siguiente comando:
 
-```sh
-java --version
-```
-
 <p align="right">(<a href="#readme-top">Regresar al inicio</a>)</p>
 
 ---
@@ -135,32 +131,19 @@ cd track07-eventos-notificaciones-kafka
 
 ## Uso
 
-### Opción A — Todo con Docker Compose (recomendado para probar de extremo a extremo)
+### Servicios desde IntelliJ, Kafka en Docker
 
-```sh
-docker compose up --build
-```
-
-Levanta 5 contenedores: `zookeeper`, `kafka`, `event-service`, `notification-service` y `api-gateway`. El Gateway queda disponible en `http://localhost:8083`.
-
-Para apagar todo:
-
-```sh
-docker compose down
-```
-
-### Opción B — Servicios desde IntelliJ, Kafka en Docker
-
-1. Levantar solo la infraestructura de mensajería:
+Levantar solo la infraestructura de mensajería:
 
 ```sh
 docker compose up zookeeper kafka
 ```
 
-1. Ejecutar desde IntelliJ, en este orden:
-   - `EventServiceApplication` (puerto 8081)
-   - `NotificationServiceApplication` (puerto 8082)
-   - `ApiGatewayApplication` (puerto 8083)
+Ejecutar desde IntelliJ, en este orden:
+
+- `EventServiceApplication` (puerto 8081)
+- `NotificationServiceApplication` (puerto 8082)
+- `ApiGatewayApplication` (puerto 8083)
 
 <p align="right">(<a href="#readme-top">Regresar al inicio</a>)</p>
 
@@ -238,17 +221,31 @@ Respuesta esperada: lista de notificaciones marcadas como no enviadas por el fal
 
 ## Evidencia de ejecución
 
-Capturas de pantalla del sistema funcionando de extremo a extremo, en la carpeta [`capturas/`](./capturas):
+Capturas de pantalla del sistema funcionando de extremo a extremo
 
-| Captura | Descripción |
-|---|---|
-| `01-postman-post-events-201.png` | `POST /api/events` respondiendo `201 Created` |
-| `02-circuit-breaker-logs.png` | Ciclo completo del Circuit Breaker en consola (fallo simulado → circuito OPEN → recuperación) |
-| `03-postman-notifications-no-enviadas.png` | `GET /api/notifications?enviada=false` con notificaciones marcadas por el fallback |
-| `04-swagger-event-service.png` | Swagger UI de Event Service |
-| `05-swagger-notification-service.png` | Swagger UI de Notification Service |
-| `06-docker-ps-contenedores.png` | Contenedores de Docker Compose corriendo |
-| `07-postman-gateway-8083.png` | Petición enrutada correctamente a través del API Gateway |
+![POST /api/events respondiendo 201](./capturas/01-postman-post-events-201.png)
+
+El endpoint `POST /api/events` recibe el evento y responde `201 Created` con el objeto creado, incluyendo el `id` y `timestamp` autogenerados por el servidor.
+
+![Ciclo del Circuit Breaker en consola](./capturas/02-circuit-breaker-logs.png)
+
+Ciclo completo del Circuit Breaker observado en una corrida real de pruebas: fallos simulados acumulándose, el circuito abriéndose (`CircuitBreaker 'envioNotificacion' is OPEN`), y la recuperación posterior tras el periodo de espera configurado.
+
+![Notificaciones marcadas como no enviadas](./capturas/03-postman-notifications-no-enviadas.png)
+
+`GET /api/notifications?enviada=false` mostrando las notificaciones que el fallback marcó como no enviadas durante la apertura del circuito.
+
+![Swagger UI de Event Service](./capturas/04-swagger-event-service.png)
+
+Documentación interactiva de Event Service, generada automáticamente por Springdoc OpenAPI.
+
+![Swagger UI de Notification Service](./capturas/05-swagger-notification-service.png)
+
+Documentación interactiva de Notification Service, generada automáticamente por Springdoc OpenAPI.
+
+![Petición enrutada a través del API Gateway](./capturas/07-postman-gateway-8083.png)
+
+Misma petición que en la primera captura, esta vez dirigida al puerto 8083 (API Gateway), confirmando que el enrutamiento hacia Event Service funciona correctamente.
 
 <p align="right">(<a href="#readme-top">Regresar al inicio</a>)</p>
 
@@ -256,11 +253,10 @@ Capturas de pantalla del sistema funcionando de extremo a extremo, en la carpeta
 
 ## Decisiones de diseño relevantes
 
-- **JSON plano en Kafka, no Avro:** el repositorio del curso de referencia (Programming Techie) usa Avro + Confluent Schema Registry. Se decidió simplificar a JSON plano (Jackson) porque la rúbrica de este proyecto lo especifica explícitamente y porque Avro añade un contenedor más sin aportar puntos en la evaluación.
-- **Circuit Breaker en una clase separada (`NotificationSender`):** Resilience4j funciona mediante un proxy de Spring AOP que solo intercepta llamadas entrantes desde fuera del bean. Si el método protegido viviera en la misma clase que lo invoca, el Circuit Breaker se ignoraría en silencio (el "self-invocation problem").
+- **JSON plano en Kafka, no Avro:** el repositorio del curso de referencia (Programming Techie) usa Avro + Confluent Schema Registry. Se decidió simplificar a JSON plano.
+- **Circuit Breaker en una clase separada (`NotificationSender`):** Resilience4j funciona mediante un proxy de Spring AOP que solo intercepta llamadas entrantes desde fuera del bean. Si el método protegido estuviera en la misma clase que lo invoca, el Circuit Breaker se ignoraría en silencio (el "self-invocation problem").
 - **`wait-duration-in-open-state: 2s`:** la rúbrica menciona dos cifras ("tiempo de espera de 2 segundos" y "HALF_OPEN tras 5 segundos") para lo que normalmente es un solo parámetro en Resilience4j. Se interpretó 2s como `wait-duration-in-open-state`, y 5 como `permitted-number-of-calls-in-half-open-state`.
 - **Perfiles `docker` separados:** cada servicio tiene un `application-docker.yml` que sobrescribe únicamente las propiedades de red, activado vía `SPRING_PROFILES_ACTIVE=docker` solo dentro de los contenedores.
-- **`ZoneOffset.UTC` explícito en todos los timestamps:** se detectó que `LocalDateTime.now()` sin zona horaria explícita es ambiguo entre contenedores Docker desplegados en distintas zonas. Se corrigió a `LocalDateTime.now(ZoneOffset.UTC)` en los 5 puntos donde se genera un timestamp.
 - **`spring.json.value.default.type` explícito en el consumer:** al desactivar `spring.json.use.type.headers` (necesario porque productor y consumidor no comparten clase Java), `JsonDeserializer` perdía toda forma de saber a qué clase mapear el mensaje. Se declaró el tipo de destino explícitamente para resolverlo.
 
 <p align="right">(<a href="#readme-top">Regresar al inicio</a>)</p>
@@ -271,46 +267,31 @@ Capturas de pantalla del sistema funcionando de extremo a extremo, en la carpeta
 
 **Plataforma utilizada:** Claude (Anthropic), capa gratuita.
 
-**Motivo de la elección:** continuidad con tracks anteriores del programa (incluyendo Track 05, de Spring Security), lo que permitió mantener contexto de mi nivel y mis decisiones de diseño previas a lo largo del desarrollo.
+**Motivo de la elección:** .
 
 **Ejemplos concretos de uso durante el desarrollo, con el prompt real utilizado:**
 
-1. **Detección de Avro/Schema Registry fuera del alcance del proyecto.**
-   > *Prompt:* "no, solamente cumplir con lo solicitado lo cual es lo siguiente [se pegó la descripción completa del proyecto y rúbrica]"
+1. **Detección del "self-invocation problem" de Spring AOP.**
+   > *Prompt:* "todas las preguntas que me hagas podrían ser buenos prompts para las evidencias, por otro lado, dime el sender como clase separada afectará la a la ejecución?"
 
-   Al comparar el repositorio del curso de referencia contra la rúbrica real, se detectó que el curso usa Apache Avro y Confluent Schema Registry para los eventos de Kafka — tecnología no mencionada en la rúbrica. Se confirmó la decisión de usar JSON plano antes de escribir código, evitando un contenedor adicional sin valor evaluado.
+   El diseño inicial (envío simulado como método dentro de `NotificationService`, llamado desde otro método de la misma clase) habría hecho que `@CircuitBreaker` se ignorara en tiempo de ejecución sin ningún error visible. Se solicitó una explicación completa del mecanismo de proxies de Spring AOP antes de aceptar el cambio a una clase separada (`NotificationSender`),
 
-2. **Detección del "self-invocation problem" de Spring AOP.**
-   > *Prompt:* "todas las preguntas que me hagas podrían ser buenos prompts para las evidencias, por otro lado, dime el sender como clase separada afectará la evaluación?"
-
-   El diseño inicial (envío simulado como método dentro de `NotificationService`, llamado desde otro método de la misma clase) habría hecho que `@CircuitBreaker` se ignorara en tiempo de ejecución sin ningún error visible. Se solicitó una explicación completa del mecanismo de proxies de Spring AOP antes de aceptar el cambio a una clase separada (`NotificationSender`), confirmando que esto afecta directamente el criterio de evaluación del Circuit Breaker (20 pts).
-
-3. **Diagnóstico de un fallo de Kafka mediante logs en cascada.**
-   > *Prompt:* "cuando ejecuto NotificationServiceApplication [se pegó el log de conexión rechazada a localhost:9092]"
+2. **Diagnóstico de un fallo de Kafka mediante logs en cascada.**
+   > *Prompt:* "cuando ejecuto NotificationServiceApplication [se pegó el log de conexión rechazada]"
 
    Un error 500 inicial resultó no ser un bug de aplicación: `docker ps` reveló que el contenedor de Kafka nunca llegó a iniciar, y `docker compose logs kafka` mostró la causa real (`No security protocol defined for listener PLAINTEXT_HOST`, por faltar la variable `KAFKA_LISTENERS`).
 
-4. **Corrección de un deserializer de Kafka mal configurado.**
+3. **Corrección de un deserializer de Kafka mal configurado.**
    > *Prompt:* "(?, ?, ?, ?, ?, default) [se pegó el stack trace completo de IllegalStateException: No type information in headers and no default type provided]"
 
    Se identificó que desactivar `spring.json.use.type.headers` eliminaba la única forma en que `JsonDeserializer` podía inferir el tipo de destino, y que faltaba declarar `spring.json.value.default.type` explícitamente para compensarlo.
 
-5. **Auditoría de integridad del código antes de hacer commit.**
+4. **Auditoría de integridad del código antes de hacer commit.**
    > *Prompt:* "Antes de hacer commit, ¿revisamos uno por uno los 8 archivos modificados con 'git diff' para confirmar que cada cambio es intencional?"
 
    Esta revisión sistemática, archivo por archivo, detectó múltiples problemas reales antes de subirlos al repositorio: una dependencia (`spring-boot-starter-data-jpa`) eliminada por accidente, el `pom.xml` de `notification-service` sobrescrito completo con el contenido del `pom.xml` raíz, y dos archivos (`NotificationRepository.java`, `Notification.java`) que nunca habían llegado a confirmarse en git pese a existir en disco.
 
-**Reto enfrentado:** durante la verificación pre-commit se descubrió que varios archivos del proyecto habían quedado vacíos o sobrescritos con contenido incorrecto en algún punto del desarrollo, sin que esto fuera evidente hasta revisar `git diff` archivo por archivo. Esto reforzó la importancia de auditar cada cambio antes de subirlo, en vez de confiar en que "si compila, está completo".
-
-<p align="right">(<a href="#readme-top">Regresar al inicio</a>)</p>
-
----
-
-## Ramas del repositorio
-
-- `main`: contenido inicial generado por GitHub.
-- `wip`: rama de trabajo con el historial completo de desarrollo, commit por archivo.
-- `development`: rama final, creada a partir de `wip` una vez verificado que el proyecto compila y corre correctamente de extremo a extremo.
+**Reto enfrentado:** durante la verificación pre-commit se descubrió que varios archivos del proyecto habían quedado vacíos o sobrescritos con contenido incorrecto en algún punto del desarrollo, sin que esto fuera evidente hasta revisar `git diff` archivo por archivo. Esto reforzó la importancia de auditar cada cambio antes de subirlo.
 
 <p align="right">(<a href="#readme-top">Regresar al inicio</a>)</p>
 
