@@ -17,7 +17,7 @@
   <packaging>pom</packaging>
 
   <name>notificaciones-eventos</name>
-  <description>Sistema de Notificaciones por Eventos - Track 07 IDS</description>
+  <description>Sistema de Notificaciones por Eventos - Track 07</description>
 
   <modules>
     <module>event-service</module>
